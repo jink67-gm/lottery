@@ -46,7 +46,7 @@
       <div class="big-num" id="myTickets"></div>
     </div>
     <div class="box" id="myBreakdown"></div>
-    <p class="center muted"><b>큰 화면</b>에서 곧 추첨이 시작돼요!</p>
+    <p class="center muted"><b>화면</b>에서 곧 추첨이 시작돼요!</p>
   </section>
 
   <!-- 추첨 중 / 끝 -->
@@ -284,7 +284,7 @@ function renderDraw() {
   if (data.status === 'done') {
     html = `<div class="emoji-xl">🎊</div><h2>추첨 끝!</h2><p class="muted">${mineWin ? `<b>${esc(mineWin.prize)}</b> 당첨을 축하드려요!` : '참여해 주셔서 감사합니다!'}</p>`;
   } else if (data.rolling != null) {
-    html = `<div class="emoji-xl">🥁</div><h2>${esc(data.prizes[data.rolling])}</h2><p class="muted">추첨 중… <b>큰 화면</b>을 봐 주세요!</p>`;
+    html = `<div class="emoji-xl">🥁</div><h2>${esc(data.prizes[data.rolling])}</h2><p class="muted">추첨 중… <b>화면</b>을 봐 주세요!</p>`;
   } else if (mineWin) {
     html = `<div class="emoji-xl">🎉</div><h2>${esc(mineWin.prize)} 당첨!</h2><p class="muted">다음 추첨도 함께 봐요</p>`;
   } else {
