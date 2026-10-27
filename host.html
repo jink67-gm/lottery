@@ -1,0 +1,1159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>행운 추첨 - 주최자</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. 준비 -->
+  <section id="v-setup" class="view" style="max-width:900px; margin:0 auto">
+    <div class="ribbon">🎁 행운 추첨 준비</div>
+    <p class="muted center">OX 정답과 비밀 숫자는 <b>이 기기에만 저장</b>되어 참가자에게 보이지 않아요.</p>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">🎁</span>상품</h2>
+      <div class="row">
+        <label style="margin:0">상품 개수</label>
+        <input id="prizeCount" type="number" min="1" max="20" value="4" style="width:140px; text-align:center">
+        <span class="muted">개</span>
+      </div>
+      <p class="muted" style="margin-top:14px">추첨 순서대로 적어 주세요. 위에서부터 먼저 뽑고, <b>맨 아래가 마지막(가장 큰 상품)</b>이에요.</p>
+      <div id="prizeInputs"></div>
+    </div>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">1</span>OX 문제</h2>
+      <label>문제</label>
+      <textarea id="oxQ" placeholder="예) 우리 학교 개교 연도는 1950년이다."></textarea>
+      <label>정답</label>
+      <div class="ox" id="oxAns" style="max-width:420px; margin-top:0">
+        <button class="o" data-v="O">O</button><button class="x" data-v="X">X</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">2</span>운명의 카드</h2>
+      <p class="muted">설정할 것 없어요. 카드 3장 중 2장이 행운 카드예요.</p>
+    </div>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">3</span>비밀 숫자</h2>
+      <p class="muted" style="margin-bottom:16px">1~10 중 하나를 몰래 골라 주세요. 딱 맞히면 +2장, 1 차이면 +1장.</p>
+      <div class="pick ten" id="secretPick"></div>
+    </div>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">4</span>다수결 게임</h2>
+      <p class="muted">더 많은 사람이 고른 쪽을 고르면 성공 (동점이면 모두 성공)</p>
+      <label>질문</label>
+      <input id="majQ" type="text" value="점심 메뉴 하나만 고른다면?">
+      <div class="row">
+        <div class="grow"><label>선택지 A</label><input id="majA" type="text" value="짜장면"></div>
+        <div class="grow"><label>선택지 B</label><input id="majB" type="text" value="짬뽕"></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2 class="box-title"><span class="badge">5</span>환영 한마디</h2>
+      <p class="muted">선생님들이 교장선생님께 <b>직접 한마디를 써서</b> 보내면 누구나 +1장이에요. 보낸 메시지는 큰 화면에 이름과 함께 떠올라요.</p>
+      <label>예시 문구 (한 줄에 하나씩, 최대 8개)</label>
+      <p class="muted" style="margin-top:-2px">타자가 불편한 분은 예시를 눌러 바로 채우고 고쳐 쓸 수 있어요.</p>
+      <textarea id="welcomeMsgs" style="min-height:260px">환영합니다! 🎉
+함께하게 되어 기뻐요 😊
+앞으로 잘 부탁드려요 🙏
+든든합니다! 💪
+꽃길만 걸으세요 🌸
+최고의 한 해 함께해요 ✨</textarea>
+    </div>
+
+    <button id="btnCreate" class="btn big full">방 만들기</button>
+    <div id="setupErr" class="err"></div>
+  </section>
+
+  <!-- 2. 입장 대기 -->
+  <section id="v-lobby" class="view" hidden>
+    <div class="ribbon">📱 휴대폰으로 QR을 찍어 입장해 주세요</div>
+    <div class="row" style="align-items:flex-start; gap:40px">
+      <div class="center">
+        <div class="qr" id="qr"></div>
+        <p class="room-code">방 번호 <span id="roomCode"></span></p>
+        <div class="invite">
+          <div class="invite-url" id="inviteUrl"></div>
+          <button class="btn green full" id="btnCopy">🔗 초대 링크 복사</button>
+        </div>
+      </div>
+      <div class="grow">
+        <h1>입장한 선생님 <span id="joinCount" class="accent">0</span>명</h1>
+        <div class="chips" id="joinList"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:30px">
+      <button id="btnStart" class="btn big">미션 시작!</button>
+      <button class="btn ghost" data-close>방 취소</button>
+    </div>
+  </section>
+
+  <!-- 3. 미션 진행 -->
+  <section id="v-missions" class="view" hidden>
+    <div class="ribbon">🎯 미션 진행 중</div>
+    <h1 class="center">완료 <span id="doneCount" class="accent"></span></h1>
+    <p class="muted center">이름이 초록색이 되면 미션 완료예요.</p>
+    <div class="chips" id="progList" style="justify-content:center; margin-top:18px"></div>
+    <div class="row" style="margin-top:28px; justify-content:center">
+      <button id="btnReveal" class="btn big">결과 공개</button>
+    </div>
+    <h2 class="center" style="margin-top:34px">💌 교장선생님께 보내는 환영 한마디</h2>
+    <div class="wall" id="wall"></div>
+  </section>
+
+  <!-- 4. 결과 공개 -->
+  <section id="v-reveal" class="view" hidden>
+    <div class="ribbon">📢 미션 결과 발표</div>
+    <div class="row" style="align-items:stretch">
+      <div class="box grow center">
+        <h2>OX 정답</h2>
+        <div class="big-num" id="rvOx"></div>
+        <p class="muted" id="rvOxQ"></p>
+      </div>
+      <div class="box grow center">
+        <h2>비밀 숫자</h2>
+        <div class="big-num" id="rvNum"></div>
+      </div>
+    </div>
+    <div class="box">
+      <h2>다수결 · <span id="rvMajQ"></span></h2>
+      <div class="bar" id="rvBar"></div>
+    </div>
+    <div class="box">
+      <h2>🎟️ 모두의 응모권</h2>
+      <div class="tickets" id="rvTickets"></div>
+    </div>
+    <button id="btnToDraw" class="btn big full">추첨하러 가기</button>
+  </section>
+
+  <!-- 5. 추첨 -->
+  <section id="v-draw" class="view" hidden>
+    <div class="row" style="margin-bottom:16px">
+      <h1 class="grow" id="drawTitle" style="margin:0"></h1>
+      <button id="btnDraw" class="btn big">추첨하기</button>
+    </div>
+    <div class="draw-layout">
+      <div class="machine-wrap">
+        <button id="btnSound" class="sound-btn">🔊 소리 켜짐</button>
+        <div class="machine-total" id="machineTotal">기계 속 응모권 <b>0</b>장</div>
+        <canvas id="machine"></canvas>
+        <div class="legend-row">
+          <span class="legend"><i class="dot w"></i>기본</span>
+          <span class="legend"><i class="dot g"></i>미션 보너스</span>
+          <span class="legend"><i class="dot r"></i>환영 한마디</span>
+        </div>
+      </div>
+      <div class="pcards" id="drawGrid"></div>
+    </div>
+  </section>
+
+  <!-- 6. 끝 -->
+  <section id="v-done" class="view" hidden style="max-width:900px; margin:0 auto">
+    <div class="ribbon">🎉 오늘의 당첨자 🎉</div>
+    <div class="box" id="doneList"></div>
+    <h2 class="center" style="margin-top:30px">💌 교장선생님께 보낸 환영 한마디</h2>
+    <p class="muted center">방을 닫으면 사라지니, 필요하면 이 화면을 사진으로 남겨 두세요.</p>
+    <div class="wall" id="doneWall" style="margin-bottom:30px"></div>
+    <div class="center">
+      <button class="btn big" data-close>방 닫기 (기록 삭제)</button>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="winOverlay" hidden>
+  <div class="winbox">
+    <div class="crown">👑</div>
+    <div class="prize" id="winPrize"></div>
+    <div class="name" id="winName"></div>
+    <div class="congrats">선생님, 축하합니다!</div>
+    <button class="btn big" id="btnWinClose">확인</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, update, get, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+let uid = null;
+const $ = id => document.getElementById(id);
+const STORE = 'lotteryHost';
+const BASE = 10;
+
+let room = null;      // 방 번호
+let secret = null;    // { oxAnswer, secretNum } — 이 기기에만 저장
+let data = null;      // DB의 방 데이터
+let unsub = null;
+let rolling = false;
+let qrMade = false;
+$('btnCreate').disabled = true;  // 로그인 끝나면 켜짐
+
+/* ---------- 화면 전환 ---------- */
+function show(name) {
+  document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== 'v-' + name);
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- 준비 화면 ---------- */
+function renderPrizeInputs() {
+  const n = Math.max(1, Math.min(20, +$('prizeCount').value || 1));
+  const old = [...document.querySelectorAll('.prizeName')].map(i => i.value);
+  $('prizeInputs').innerHTML = Array.from({ length: n }, (_, i) =>
+    `<label>${i + 1}번째 추첨${i === n - 1 ? ' 🏆 마지막 · 가장 큰 상품' : ''}</label>
+     <input class="prizeName" type="text" value="${esc(old[i] || '')}" placeholder="예) ${['커피 쿠폰', '케이크 쿠폰', '상품권 1만원', '상품권 3만원'][i] || '상품 이름'}">`
+  ).join('');
+}
+$('prizeCount').addEventListener('input', renderPrizeInputs);
+renderPrizeInputs();
+
+$('secretPick').innerHTML = Array.from({ length: 10 }, (_, i) => `<button data-v="${i + 1}">${i + 1}</button>`).join('');
+function singlePick(boxId) {
+  $(boxId).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $(boxId).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  });
+}
+singlePick('oxAns'); singlePick('secretPick');
+const picked = boxId => $(boxId).querySelector('.on')?.dataset.v;
+
+$('btnCreate').onclick = async () => {
+  const prizes = [...document.querySelectorAll('.prizeName')].map(i => i.value.trim());
+  const oxQ = $('oxQ').value.trim(), oxAnswer = picked('oxAns'), secretNum = +picked('secretPick');
+  const majQ = $('majQ').value.trim(), majA = $('majA').value.trim(), majB = $('majB').value.trim();
+  const welcome = $('welcomeMsgs').value.split('\n').map(t => t.trim()).filter(Boolean).slice(0, 8).map(t => t.slice(0, 30));
+  const errs = [];
+  if (prizes.some(p => !p)) errs.push('상품 이름을 모두 적어 주세요.');
+  if (!oxQ || !oxAnswer) errs.push('OX 문제와 정답을 정해 주세요.');
+  if (!secretNum) errs.push('비밀 숫자를 골라 주세요.');
+  if (!majQ || !majA || !majB) errs.push('다수결 질문과 선택지를 적어 주세요.');
+  $('setupErr').textContent = errs.join(' ');
+  if (errs.length) return;
+
+  $('btnCreate').disabled = true;
+  try {
+    let code;
+    do { code = String(1000 + Math.floor(Math.random() * 9000)); }
+    while ((await get(ref(db, 'lottery/' + code))).exists());
+
+    await set(ref(db, 'lottery/' + code), {
+      hostUid: uid,
+      status: 'lobby',
+      createdAt: Date.now(),
+      prizes,
+      ox: { q: oxQ },
+      majority: { q: majQ, a: majA, b: majB },
+      welcome
+    });
+    room = code;
+    secret = { oxAnswer, secretNum };
+    localStorage.setItem(STORE, JSON.stringify({ room, secret }));
+    listen();
+  } catch (e) {
+    $('setupErr').textContent = 'Firebase 연결에 실패했어요. firebase-config.js와 보안 규칙을 확인해 주세요. (' + e.message + ')';
+    $('btnCreate').disabled = false;
+  }
+};
+
+/* ---------- DB 구독 ---------- */
+function listen() {
+  unsub?.();
+  unsub = onValue(ref(db, 'lottery/' + room), snap => {
+    data = snap.val();
+    if (!data) { reset(); return; }
+    render();
+  });
+}
+
+function reset() {
+  unsub?.(); unsub = null;
+  localStorage.removeItem(STORE);
+  room = secret = data = null; qrMade = false;
+  $('qr').innerHTML = '';
+  $('btnCreate').disabled = false;
+  show('setup');
+}
+
+const playersArr = () => Object.entries(data.players || {}).map(([id, p]) => ({ id, ...p }))
+  .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+
+function render() {
+  const st = data.status;
+  if (st === 'lobby') renderLobby();
+  else if (st === 'missions') renderMissions();
+  else if (st === 'reveal') renderReveal();
+  else if (st === 'drawing') { if (!rolling) renderDraw(); }
+  else if (st === 'done') renderDone();
+  show(st === 'drawing' ? 'draw' : st);
+}
+
+/* ---------- 입장 대기 ---------- */
+function renderLobby() {
+  const url = new URL('index.html?room=' + room, location.href).href;
+  if (!qrMade) {
+    new QRCode($('qr'), { text: url, width: 340, height: 340 });
+    qrMade = true;
+  }
+  $('roomCode').textContent = room;
+  $('inviteUrl').textContent = url;
+  const ps = playersArr();
+  $('joinCount').textContent = ps.length;
+  $('joinList').innerHTML = ps.map(p => `<span class="chip">${esc(p.name)}</span>`).join('');
+}
+$('btnCopy').onclick = async () => {
+  const url = $('inviteUrl').textContent;
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; }
+  catch {
+    // 클립보드 권한이 없을 때 예비 방법
+    const t = document.createElement('textarea');
+    t.value = url; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    try { ok = document.execCommand('copy'); } catch {}
+    t.remove();
+  }
+  const b = $('btnCopy');
+  b.textContent = ok ? '✔ 복사됐어요! 단체방에 붙여 넣으세요' : '복사 실패 · 주소를 길게 눌러 복사해 주세요';
+  setTimeout(() => b.textContent = '🔗 초대 링크 복사', 2500);
+};
+$('btnStart').onclick = () => {
+  if (!playersArr().length && !confirm('아직 아무도 입장하지 않았어요. 그래도 시작할까요?')) return;
+  update(ref(db, 'lottery/' + room), { status: 'missions' });
+};
+
+/* ---------- 미션 진행 ---------- */
+function renderMissions() {
+  const ps = playersArr();
+  const done = ps.filter(p => p.answers).length;
+  $('doneCount').textContent = `${done} / ${ps.length}`;
+  $('progList').innerHTML = ps.map(p => `<span class="chip ${p.answers ? 'ok' : ''}">${p.answers ? '✔ ' : ''}${esc(p.name)}</span>`).join('');
+  renderWall(ps);
+}
+
+/* 환영 한마디 벽: 새 메시지만 톡 튀어나오게 */
+const wallShown = new Set();
+function renderWall(ps, wall = $('wall'), shown = wallShown) {
+  const msgs = ps.filter(p => typeof p.answers?.msg === 'string' && p.answers.msg.trim())
+    .sort((a, b) => (a.answers.at || 0) - (b.answers.at || 0));
+  const tilt = id => ((id.charCodeAt(id.length - 1) % 7) - 3) * 0.8;
+  for (const p of msgs) {
+    if (shown.has(p.id)) continue;
+    shown.add(p.id);
+    const el = document.createElement('div');
+    el.className = 'note';
+    el.style.setProperty('--tilt', tilt(p.id) + 'deg');
+    el.innerHTML = `<div class="note-msg">${esc(p.answers.msg)}</div><div class="note-from">${esc(p.name)}</div>`;
+    wall.appendChild(el);
+  }
+}
+
+$('btnReveal').onclick = async () => {
+  const ps = playersArr();
+  const notDone = ps.filter(p => !p.answers).length;
+  if (notDone && !confirm(`아직 ${notDone}명이 미션을 끝내지 않았어요. 그분들은 기본 응모권(${BASE}장)만 받아요. 공개할까요?`)) return;
+
+  const answered = ps.filter(p => p.answers);
+  const cntA = answered.filter(p => p.answers.maj === 'a').length;
+  const cntB = answered.filter(p => p.answers.maj === 'b').length;
+  const majWin = cntA > cntB ? 'a' : cntB > cntA ? 'b' : 'tie';
+
+  const upd = {};
+  for (const p of ps) {
+    const a = p.answers;
+    let r = { ox: 0, card: 0, num: 0, maj: 0 };
+    if (a) {
+      const diff = Math.abs((+a.num || 0) - secret.secretNum);
+      r = {
+        ox: a.ox === secret.oxAnswer ? 1 : 0,
+        card: a.card ? 1 : 0,
+        num: diff === 0 ? 2 : diff === 1 ? 1 : 0,
+        maj: a.maj && (majWin === 'tie' || a.maj === majWin) ? 1 : 0
+      };
+    }
+    r.welcome = a && typeof a.msg === 'string' && a.msg.trim() ? 1 : 0;
+    r.tickets = BASE + r.ox + r.card + r.num + r.maj + r.welcome;
+    upd[`players/${p.id}/result`] = r;
+  }
+  upd.reveal = { oxAnswer: secret.oxAnswer, secretNum: secret.secretNum, cntA, cntB };
+  upd.status = 'reveal';
+  await update(ref(db, 'lottery/' + room), upd);
+};
+
+/* ---------- 결과 공개 ---------- */
+function renderReveal() {
+  const rv = data.reveal, mj = data.majority;
+  $('rvOx').textContent = rv.oxAnswer;
+  $('rvOx').style.color = rv.oxAnswer === 'O' ? 'var(--blue)' : 'var(--red)';
+  $('rvOxQ').textContent = data.ox.q;
+  $('rvNum').textContent = rv.secretNum;
+  $('rvMajQ').textContent = mj.q;
+  $('rvBar').innerHTML =
+    `<div style="flex:${rv.cntA || 0.001}; background:var(--blue)">${esc(mj.a)} ${rv.cntA}</div>` +
+    `<div style="flex:${rv.cntB || 0.001}; background:var(--red)">${esc(mj.b)} ${rv.cntB}</div>`;
+  const ps = playersArr().sort((a, b) => (b.result?.tickets || 0) - (a.result?.tickets || 0));
+  $('rvTickets').innerHTML = ps.map(p => `<div class="tk"><span>${esc(p.name)}</span><b>${p.result?.tickets ?? BASE}장</b></div>`).join('');
+}
+$('btnToDraw').onclick = () => {
+  Sound.init(); Sound.startBgm();
+  update(ref(db, 'lottery/' + room), { status: 'drawing' });
+};
+
+/* ---------- 추첨: 로또 기계 ---------- */
+const winnersArr = () => (data.winners ? Object.values(data.winners) : []).sort((a, b) => a.idx - b.idx);
+const ticketsOf = p => p.result?.tickets ?? BASE;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function randFloat() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] / 4294967296;
+}
+
+/* =========================================================
+   소리: 배경음악 + 효과음 (Web Audio로 직접 합성)
+   저장소에 bgm.mp3 를 올려 두면 그 음악을 대신 틀어요.
+   ========================================================= */
+const Sound = {
+  ctx: null, on: true, master: null, music: null, sfx: null,
+  bgmOn: false, bgmTimer: null, nextBeat: 0, beat: 0, file: null, fileOk: false,
+  init() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain(); this.master.gain.value = this.on ? 1 : 0;
+      this.master.connect(this.ctx.destination);
+      this.music = this.ctx.createGain(); this.music.gain.value = 0.55; this.music.connect(this.master);
+      this.sfx = this.ctx.createGain(); this.sfx.gain.value = 0.9; this.sfx.connect(this.master);
+      // 직접 넣은 음악 파일이 있으면 사용
+      const a = new Audio('bgm.mp3');
+      a.loop = true; a.preload = 'auto';
+      a.addEventListener('canplaythrough', () => { this.fileOk = true; if (this.bgmOn) this.startBgm(); }, { once: true });
+      a.addEventListener('error', () => { this.fileOk = false; });
+      this.file = a;
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  toggle() {
+    this.on = !this.on;
+    if (this.master) this.master.gain.setTargetAtTime(this.on ? 1 : 0, this.ctx.currentTime, 0.05);
+    if (this.file) this.file.muted = !this.on;
+    return this.on;
+  },
+  note(freq, t, dur, { type = 'triangle', vol = 0.15, out = this.sfx, attack = 0.005, slide = 0 } = {}) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  },
+  noise(t, dur, { vol = 0.2, freq = 1800, q = 0.8, type = 'bandpass', sweep = 0, out = this.sfx } = {}) {
+    const c = this.ctx;
+    if (!this._nb) {
+      const len = c.sampleRate * 2, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this._nb = b;
+    }
+    const s = c.createBufferSource(); s.buffer = this._nb;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweep) f.frequency.exponentialRampToValueAtTime(freq * sweep, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(out);
+    s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  },
+  ready() { return this.ctx && this.on; },
+
+  /* 공이 기계로 쏙 들어갈 때 (너무 많으면 소리를 솎아냄) */
+  _lastPop: 0,
+  pop(kind) {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime;
+    if (t - this._lastPop < 0.045) return;
+    this._lastPop = t;
+    const base = kind === 'g' ? 1320 : kind === 'r' ? 1050 : 760;
+    this.note(base * (0.94 + Math.random() * 0.12), t, 0.09, { type: 'sine', vol: 0.12, slide: 1.6 });
+    if (kind !== 'w') this.note(base * 2, t + 0.03, 0.12, { type: 'triangle', vol: 0.05 });
+  },
+  /* 공끼리 부딪히는 달그락 소리 (섞을 때) */
+  rattle(intensity) {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime;
+    const n = Math.round(1 + intensity * 4);
+    for (let i = 0; i < n; i++) {
+      this.noise(t + Math.random() * 0.05, 0.03, { vol: 0.03 + intensity * 0.05, freq: 2500 + Math.random() * 3500, q: 6 });
+    }
+  },
+  /* 드럼롤: 점점 커짐 */
+  drumroll(sec) {
+    if (!this.ready()) return;
+    const t0 = this.ctx.currentTime;
+    for (let t = 0; t < sec; t += 0.045) {
+      const k = t / sec;
+      this.noise(t0 + t, 0.07, { vol: 0.05 + k * 0.22, freq: 900 + k * 600, q: 0.7 });
+    }
+    this.noise(t0 + sec, 0.5, { vol: 0.35, freq: 140, q: 0.5, type: 'lowpass' });   // 쿵!
+  },
+  /* 공이 관으로 쭉 빨려 올라갈 때 */
+  whoosh() {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime;
+    this.noise(t, 0.9, { vol: 0.25, freq: 300, sweep: 9, q: 2 });
+    this.note(220, t, 0.9, { type: 'sine', vol: 0.06, slide: 4 });
+  },
+  /* 당첨 팡파르 */
+  fanfare() {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime + 0.05;
+    const seq = [[523, 0], [659, .12], [784, .24], [1047, .36]];
+    seq.forEach(([f, d]) => this.note(f, t + d, 0.3, { type: 'square', vol: 0.07 }));
+    [523, 659, 784, 1047].forEach(f => this.note(f, t + .5, 1.6, { type: 'triangle', vol: 0.09, attack: 0.02 }));
+    [1568, 2093, 2637].forEach((f, i) => this.note(f, t + .55 + i * .08, 0.5, { type: 'sine', vol: 0.05 }));
+    this.noise(t + .5, 1.2, { vol: 0.12, freq: 7000, q: 0.5, type: 'highpass' });
+  },
+  click() { if (this.ready()) this.note(880, this.ctx.currentTime, 0.06, { type: 'square', vol: 0.04 }); },
+
+  /* 배경음악 */
+  startBgm() {
+    this.bgmOn = true;
+    if (!this.ctx) return;
+    if (this.fileOk) {
+      clearInterval(this.bgmTimer); this.bgmTimer = null;
+      this.file.muted = !this.on; this.file.volume = 0.6;
+      this.file.play().catch(() => {});
+      return;
+    }
+    if (this.bgmTimer) return;
+    this.nextBeat = this.ctx.currentTime + 0.1; this.beat = 0;
+    this.bgmTimer = setInterval(() => this._schedule(), 40);
+  },
+  stopBgm() {
+    this.bgmOn = false;
+    clearInterval(this.bgmTimer); this.bgmTimer = null;
+    this.file?.pause();
+  },
+  duck(level, sec = 0.4) {
+    if (this.music) this.music.gain.setTargetAtTime(0.55 * level, this.ctx.currentTime, sec / 3);
+    if (this.file && this.fileOk) this.file.volume = 0.6 * level;
+  },
+  _schedule() {
+    const c = this.ctx, step = 60 / 118 / 2;        // 118 BPM, 8분음표 단위
+    // 다장조 경쾌한 진행: C - Am - F - G
+    const chords = [[262, 330, 392], [220, 262, 330], [175, 220, 262], [196, 247, 294]];
+    const bass = [131, 110, 87, 98];
+    const mel = [
+      [784, 0, 659, 0, 784, 880, 784, 659], [659, 0, 523, 0, 587, 659, 523, 0],
+      [698, 0, 659, 587, 523, 0, 587, 659], [587, 0, 494, 587, 784, 0, 0, 0],
+      [784, 0, 880, 784, 659, 0, 784, 0], [880, 0, 784, 659, 523, 0, 659, 0],
+      [698, 659, 587, 0, 659, 587, 523, 0], [494, 0, 587, 0, 523, 0, 0, 0]
+    ];
+    while (this.nextBeat < c.currentTime + 0.25) {
+      const t = this.nextBeat, b = this.beat;
+      const bar = Math.floor(b / 8) % 8, inBar = b % 8, ch = bar % 4;
+      const out = this.music;
+      if (inBar === 0 || inBar === 4) this.note(bass[ch], t, step * 1.8, { type: 'triangle', vol: 0.22, out });
+      if (inBar === 2 || inBar === 6) chords[ch].forEach(f => this.note(f * 2, t, step * 0.7, { type: 'square', vol: 0.025, out }));
+      if (inBar % 2 === 0) this.noise(t, 0.04, { vol: inBar % 4 === 2 ? 0.05 : 0.025, freq: 8000, q: 1, type: 'highpass', out });
+      if (inBar === 4) this.noise(t, 0.12, { vol: 0.05, freq: 1500, q: 0.8, out });
+      const m = mel[bar][inBar];
+      if (m) {
+        this.note(m, t, step * 1.6, { type: 'sine', vol: 0.09, out });
+        this.note(m * 2, t, step * 0.8, { type: 'sine', vol: 0.02, out });
+      }
+      this.nextBeat += step; this.beat++;
+    }
+  }
+};
+// 새로고침 뒤에는 첫 터치/클릭 때 소리를 켬 (브라우저 정책)
+document.addEventListener('pointerdown', () => {
+  Sound.init();
+  if (data?.status === 'drawing' && !Sound.bgmOn) Sound.startBgm();
+}, { once: true });
+
+$('btnSound').onclick = () => {
+  Sound.init();
+  const on = Sound.toggle();
+  $('btnSound').textContent = on ? '🔊 소리 켜짐' : '🔇 소리 꺼짐';
+  if (on && data?.status === 'drawing' && !Sound.bgmOn) Sound.startBgm();
+};
+
+/* =========================================================
+   로또 기계 (캔버스)
+   ========================================================= */
+const M = {
+  W: 640, H: 800, cx: 320, cy: 350, R: 255,
+  balls: [], r: 10, jet: 0.25, shake: 0, mix: 0, spin: 0, spinSpeed: 0.01,
+  fed: false, feeding: false, star: null, sprites: {}, burst: 0, t: 0
+};
+const KIND = {
+  w: { hi: '#ffffff', mid: '#f4ecdf', lo: '#c9b394', edge: '#a8916f' },
+  g: { hi: '#fff8d0', mid: '#ffc93a', lo: '#c98a00', edge: '#9a6a00' },
+  r: { hi: '#ffe6df', mid: '#ff6b55', lo: '#c0301f', edge: '#8e2015' }
+};
+const cvs = $('machine');
+const ctx = cvs.getContext('2d');
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+cvs.width = M.W * DPR; cvs.height = M.H * DPR;
+ctx.scale(DPR, DPR);
+
+function makeSprites(r) {
+  const make = k => {
+    const s = Math.ceil((r + 3) * 2 * DPR);
+    const o = document.createElement('canvas'); o.width = o.height = s;
+    const g = o.getContext('2d'); g.scale(DPR, DPR);
+    const c = r + 3;
+    const grad = g.createRadialGradient(c - r * .35, c - r * .45, r * .05, c, c, r);
+    grad.addColorStop(0, k.hi); grad.addColorStop(.45, k.mid); grad.addColorStop(1, k.lo);
+    g.fillStyle = grad; g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.fill();
+    g.lineWidth = Math.max(1, r * .1); g.strokeStyle = k.edge; g.stroke();
+    // 반짝이는 하이라이트
+    g.fillStyle = 'rgba(255,255,255,.85)';
+    g.beginPath(); g.ellipse(c - r * .35, c - r * .42, r * .28, r * .18, -0.6, 0, Math.PI * 2); g.fill();
+    return o;
+  };
+  M.sprites = { w: make(KIND.w), g: make(KIND.g), r: make(KIND.r) };
+}
+const ballRadiusFor = n => Math.max(6, Math.min(16, M.R * Math.sqrt(0.34 / Math.max(1, n))));
+
+const INTAKE_A = -Math.PI * 0.76;
+function addBall(owner, kind) {
+  const d = M.R - M.r - 16;
+  M.balls.push({
+    owner, kind,
+    x: M.cx + Math.cos(INTAKE_A) * d, y: M.cy + Math.sin(INTAKE_A) * d,
+    vx: 3 + Math.random() * 3, vy: 1 + Math.random() * 2,
+    life: 1, dying: false
+  });
+  updateTotal();
+}
+function updateTotal() {
+  const n = M.balls.filter(b => !b.dying).length + (M.star && !M.star.done ? 0 : 0);
+  $('machineTotal').innerHTML = `기계 속 응모권 <b>${n}</b>장`;
+}
+
+/* 물리 (고정 시간 간격이라 화면 주사율과 상관없이 같은 속도) */
+function physics() {
+  const { cx, cy, R, r } = M;
+  const lim = R - r - 9;
+  for (const b of M.balls) {
+    b.vy += 0.32;
+    if (b.y > cy + R * 0.28) {
+      b.vy -= M.jet * (0.5 + Math.random());
+      b.vx += (Math.random() - 0.5) * M.jet * 1.6;
+    }
+    if (M.mix > 0) {
+      const tx = -(b.y - cy) / R, ty = (b.x - cx) / R;
+      b.vx += tx * M.mix * 0.9 + (Math.random() - 0.5) * M.mix * 5;
+      b.vy += ty * M.mix * 0.9 + (Math.random() - 0.5) * M.mix * 5 - M.mix * 0.25;
+    }
+    b.vx *= 0.992; b.vy *= 0.992;
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > 18) { b.vx *= 18 / sp; b.vy *= 18 / sp; }
+    b.x += b.vx; b.y += b.vy;
+    const dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
+    if (d > lim) {
+      const nx = dx / d, ny = dy / d;
+      b.x = cx + nx * lim; b.y = cy + ny * lim;
+      const vn = b.vx * nx + b.vy * ny;
+      if (vn > 0) { b.vx -= 1.7 * vn * nx; b.vy -= 1.7 * vn * ny; }
+    }
+  }
+  // 공끼리 충돌: 격자로 가까운 공만 검사 (공 수백 개도 가볍게)
+  const cell = r * 2, grid = new Map(), balls = M.balls;
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i], k = ((b.x / cell) | 0) * 4096 + ((b.y / cell) | 0);
+    let l = grid.get(k); if (!l) grid.set(k, l = []); l.push(i);
+  }
+  const min = r * 2, min2 = min * min;
+  for (let i = 0; i < balls.length; i++) {
+    const a = balls[i], gx = (a.x / cell) | 0, gy = (a.y / cell) | 0;
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+      const l = grid.get((gx + ox) * 4096 + gy + oy); if (!l) continue;
+      for (const j of l) {
+        if (j <= i) continue;
+        const b = balls[j], dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+        if (d2 === 0 || d2 >= min2) continue;
+        const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, push = (min - d) / 2;
+        a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+        const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (rv < 0) { const imp = rv * 0.9; a.vx += imp * nx; a.vy += imp * ny; b.vx -= imp * nx; b.vy -= imp * ny; }
+      }
+    }
+  }
+  for (const b of balls) if (b.dying) b.life -= 0.03;
+  if (balls.some(b => b.dying && b.life <= 0)) M.balls = balls.filter(b => !(b.dying && b.life <= 0));
+  M.spin += M.spinSpeed + M.mix * 0.12;
+  M.t++;
+}
+
+/* ---------- 그리기 ---------- */
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function chrome(x0, x1) {
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, '#6b7280'); g.addColorStop(.18, '#f8fafc'); g.addColorStop(.35, '#9ca3af');
+  g.addColorStop(.6, '#e5e7eb'); g.addColorStop(.85, '#6b7280'); g.addColorStop(1, '#374151');
+  return g;
+}
+function drawStage() {
+  const { W, H, cx, cy } = M;
+  // 무대 조명
+  ctx.save();
+  ctx.globalAlpha = 0.18 + 0.05 * Math.sin(M.t / 40);
+  const rays = 12;
+  for (let i = 0; i < rays; i++) {
+    const a = (i / rays) * Math.PI * 2 + M.t / 600;
+    ctx.fillStyle = i % 2 ? '#ffd76a' : '#ffffff';
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, W, a, a + Math.PI / rays * 0.7); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  // 바닥 그림자
+  const sh = ctx.createRadialGradient(cx, H - 30, 10, cx, H - 30, 260);
+  sh.addColorStop(0, 'rgba(0,0,0,.45)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.fillRect(0, H - 120, W, 120);
+}
+function drawBase() {
+  const { cx, cy, R, H } = M;
+  const neckTop = cy + R - 12, top = cy + R + 44;
+  // 목 (크롬 기둥)
+  ctx.fillStyle = chrome(cx - 52, cx + 52);
+  ctx.fillRect(cx - 52, neckTop, 104, 60);
+  ctx.fillStyle = chrome(cx - 78, cx + 78);
+  roundRect(cx - 78, top - 6, 156, 18, 9); ctx.fill();
+  // 받침대 몸통
+  const bodyTop = top + 10, bodyBot = H - 26;
+  const g = ctx.createLinearGradient(0, bodyTop, 0, bodyBot);
+  g.addColorStop(0, '#ff5a43'); g.addColorStop(.5, '#d8321f'); g.addColorStop(1, '#8f1d10');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(cx - 140, bodyTop); ctx.lineTo(cx + 140, bodyTop);
+  ctx.quadraticCurveTo(cx + 150, bodyTop, cx + 152, bodyTop + 12);
+  ctx.lineTo(cx + 205, bodyBot); ctx.lineTo(cx - 205, bodyBot);
+  ctx.lineTo(cx - 152, bodyTop + 12);
+  ctx.quadraticCurveTo(cx - 150, bodyTop, cx - 140, bodyTop);
+  ctx.closePath(); ctx.fill();
+  // 윗면 광택
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  ctx.fillRect(cx - 138, bodyTop + 2, 276, 6);
+  // 금색 띠
+  const gold = ctx.createLinearGradient(0, 0, 0, 14);
+  ctx.fillStyle = '#f7b928';
+  ctx.fillRect(cx - 190, bodyBot - 18, 380, 8);
+  ctx.fillStyle = '#c98a00';
+  ctx.fillRect(cx - 190, bodyBot - 10, 380, 3);
+  // 전구 줄 (순서대로 반짝)
+  const n = 11, y = bodyTop + 34;
+  for (let i = 0; i < n; i++) {
+    const x = cx - 150 + (300 / (n - 1)) * i;
+    const lit = ((Math.floor(M.t / (M.mix > 0 ? 3 : 9)) + i) % 3) === 0;
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = lit ? '#fff4b0' : '#8a5a10';
+    if (lit) { ctx.shadowColor = '#ffd23a'; ctx.shadowBlur = 16; }
+    ctx.fill(); ctx.shadowBlur = 0;
+  }
+  // 간판 글씨
+  ctx.save();
+  ctx.font = '44px Jua, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tg = ctx.createLinearGradient(0, y + 30, 0, y + 72);
+  tg.addColorStop(0, '#fff7c2'); tg.addColorStop(.5, '#ffd23a'); tg.addColorStop(1, '#e09a00');
+  ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowOffsetY = 3; ctx.shadowBlur = 4;
+  ctx.fillStyle = tg; ctx.fillText('LUCKY DRAW', cx, y + 52);
+  ctx.restore();
+}
+function drawTube() {
+  const { cx, cy, R } = M;
+  const top = 14, bot = cy - R + 18, w = 34;
+  // 유리관
+  const g = ctx.createLinearGradient(cx - w, 0, cx + w, 0);
+  g.addColorStop(0, 'rgba(170,210,240,.55)'); g.addColorStop(.3, 'rgba(255,255,255,.35)');
+  g.addColorStop(.7, 'rgba(200,230,250,.25)'); g.addColorStop(1, 'rgba(140,180,220,.55)');
+  ctx.fillStyle = g; ctx.fillRect(cx - w, top, w * 2, bot - top);
+  ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx - w + 9, top + 8); ctx.lineTo(cx - w + 9, bot - 8); ctx.stroke();
+  // 크롬 고리
+  ctx.fillStyle = chrome(cx - w - 10, cx + w + 10);
+  roundRect(cx - w - 10, top - 6, (w + 10) * 2, 16, 8); ctx.fill();
+  roundRect(cx - w - 12, bot - 10, (w + 12) * 2, 20, 10); ctx.fill();
+}
+function drawIntake() {
+  const { cx, cy, R } = M;
+  const ix = cx + Math.cos(INTAKE_A) * (R - 4), iy = cy + Math.sin(INTAKE_A) * (R - 4);
+  ctx.save(); ctx.translate(ix, iy); ctx.rotate(INTAKE_A + Math.PI / 2);
+  const g = ctx.createLinearGradient(-50, 0, 50, 0);
+  g.addColorStop(0, '#c98a00'); g.addColorStop(.3, '#ffe17a'); g.addColorStop(.6, '#f7b928'); g.addColorStop(1, '#9a6a00');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(-24, 6); ctx.lineTo(24, 6); ctx.lineTo(50, -58); ctx.lineTo(-50, -58); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = chrome(-54, 54);
+  roundRect(-54, -66, 108, 12, 6); ctx.fill();
+  ctx.restore();
+}
+function drawGlassBack() {
+  const { cx, cy, R } = M;
+  const g = ctx.createRadialGradient(cx - R * .25, cy - R * .3, R * .1, cx, cy, R);
+  g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(.7, 'rgba(160,205,245,.22)'); g.addColorStop(1, 'rgba(90,150,215,.45)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+}
+function drawPaddles() {
+  const { cx, cy, R } = M;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(M.spin);
+  for (let i = 0; i < 3; i++) {
+    ctx.rotate(Math.PI * 2 / 3);
+    const g = ctx.createLinearGradient(0, -7, 0, 7);
+    g.addColorStop(0, 'rgba(230,235,245,.55)'); g.addColorStop(.5, 'rgba(255,255,255,.75)'); g.addColorStop(1, 'rgba(150,160,180,.55)');
+    ctx.fillStyle = g;
+    roundRect(0, -6, R - 30, 12, 6); ctx.fill();
+  }
+  ctx.fillStyle = chrome(-22, 22);
+  ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f7b928'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawBalls() {
+  const rr = M.r + 3;
+  for (const b of M.balls) {
+    const s = M.sprites[b.kind];
+    if (b.dying) {
+      ctx.globalAlpha = Math.max(0, b.life);
+      const k = rr * b.life;
+      ctx.drawImage(s, b.x - k, b.y - k, k * 2, k * 2);
+      ctx.globalAlpha = 1;
+    } else ctx.drawImage(s, b.x - rr, b.y - rr, rr * 2, rr * 2);
+  }
+}
+function drawGlassFront() {
+  const { cx, cy, R } = M;
+  // 크롬 테두리
+  ctx.lineWidth = 16;
+  const rg = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+  rg.addColorStop(0, '#f8fafc'); rg.addColorStop(.25, '#9ca3af'); rg.addColorStop(.5, '#e5e7eb');
+  rg.addColorStop(.75, '#6b7280'); rg.addColorStop(1, '#d1d5db');
+  ctx.strokeStyle = rg; ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath(); ctx.arc(cx, cy, R - 4, 0, Math.PI * 2); ctx.stroke();
+  // 유리 반사광
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 18;
+  ctx.beginPath(); ctx.arc(cx, cy, R - 34, Math.PI * 1.06, Math.PI * 1.36); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(cx, cy, R - 34, Math.PI * 1.41, Math.PI * 1.47); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 12;
+  ctx.beginPath(); ctx.arc(cx, cy, R - 30, Math.PI * 0.08, Math.PI * 0.3); ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.ellipse(cx + R * .42, cy - R * .55, 14, 8, -0.7, 0, Math.PI * 2); ctx.fill();
+}
+function drawStar() {
+  const st = M.star; if (!st) return;
+  // 뒤에서 도는 빛
+  if (st.r > 40) {
+    ctx.save(); ctx.translate(st.x, st.y); ctx.rotate(M.t / 50);
+    ctx.globalAlpha = Math.min(1, (st.r - 40) / 80) * 0.8;
+    for (let i = 0; i < 16; i++) {
+      ctx.rotate(Math.PI / 8);
+      const g = ctx.createLinearGradient(0, 0, st.r * 2.4, 0);
+      g.addColorStop(0, 'rgba(255,230,120,.9)'); g.addColorStop(1, 'rgba(255,230,120,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(st.r * 2.4, -st.r * .12); ctx.lineTo(st.r * 2.4, st.r * .12); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  const halo = ctx.createRadialGradient(st.x, st.y, st.r * .8, st.x, st.y, st.r * 1.5);
+  halo.addColorStop(0, 'rgba(255,215,90,.8)'); halo.addColorStop(1, 'rgba(255,215,90,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(st.x, st.y, st.r * 1.5, 0, Math.PI * 2); ctx.fill();
+  const k = KIND[st.kind];
+  const g = ctx.createRadialGradient(st.x - st.r * .35, st.y - st.r * .45, st.r * .05, st.x, st.y, st.r);
+  g.addColorStop(0, k.hi); g.addColorStop(.45, k.mid); g.addColorStop(1, k.lo);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = Math.max(2, st.r * .05); ctx.strokeStyle = k.edge; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  ctx.beginPath(); ctx.ellipse(st.x - st.r * .38, st.y - st.r * .48, st.r * .26, st.r * .14, -0.6, 0, Math.PI * 2); ctx.fill();
+  if (st.label && st.r > 40) {
+    // 이름표
+    let fs = Math.min(st.r * 0.5, 62);
+    ctx.font = `${fs}px Jua, sans-serif`;
+    while (ctx.measureText(st.label).width > st.r * 1.5 && fs > 16) { fs -= 2; ctx.font = `${fs}px Jua, sans-serif`; }
+    const w = ctx.measureText(st.label).width + fs * .9, h = fs * 1.4;
+    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    roundRect(st.x - w / 2, st.y - h / 2, w, h, h / 2); ctx.fill();
+    ctx.fillStyle = '#a92a1d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(st.label, st.x, st.y + 2);
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, M.W, M.H);
+  drawStage();
+  ctx.save();
+  if (M.shake) ctx.translate((Math.random() - .5) * M.shake, (Math.random() - .5) * M.shake);
+  drawBase(); drawTube(); drawIntake();
+  drawGlassBack(); drawPaddles(); drawBalls(); drawGlassFront();
+  ctx.restore();
+  drawStar();
+}
+
+let acc = 0, lastT = performance.now();
+const STEP = 1000 / 60;
+M.perf = { frames: 0, physMs: 0, drawMs: 0 };
+function loop(now) {
+  acc += Math.min(100, now - lastT); lastT = now;
+  const t0 = performance.now();
+  while (acc >= STEP) { physics(); acc -= STEP; }
+  const t1 = performance.now();
+  draw();
+  const t2 = performance.now();
+  M.perf.frames++; M.perf.physMs += t1 - t0; M.perf.drawMs += t2 - t1;
+  if (M.mix > 0.2 && M.t % 4 === 0) Sound.rattle(M.mix);
+  requestAnimationFrame(loop);
+}
+window.__M = M;   // 점검용
+makeSprites(M.r);
+requestAnimationFrame(loop);
+
+function tween(obj, to, ms, ease = t => 1 - Math.pow(1 - t, 3)) {
+  const from = {}; for (const k in to) from[k] = obj[k];
+  const t0 = performance.now();
+  return new Promise(res => {
+    const tick = now => {
+      const t = Math.min(1, (now - t0) / ms), e = ease(t);
+      for (const k in to) obj[k] = from[k] + (to[k] - from[k]) * e;
+      t < 1 ? requestAnimationFrame(tick) : res();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+function intakePoint() {
+  const rc = cvs.getBoundingClientRect(), sx = rc.width / M.W, sy = rc.height / M.H;
+  return { x: rc.left + (M.cx + Math.cos(INTAKE_A) * (M.R + 40)) * sx, y: rc.top + (M.cy + Math.sin(INTAKE_A) * (M.R + 40)) * sy };
+}
+
+/* ---------- 참가자 카드 ---------- */
+function kindOf(p, k) {
+  const welcome = p.result?.welcome || 0;
+  return k < BASE ? 'w' : k < ticketsOf(p) - welcome ? 'g' : 'r';
+}
+function renderDraw() {
+  const ws = winnersArr();
+  const idx = ws.length;
+  const prizes = data.prizes;
+  const wonBy = Object.fromEntries(ws.map(w => [w.id, w.prize]));
+  const ps = playersArr();
+  const remain = ps.filter(p => !wonBy[p.id]);
+  const total = remain.reduce((s, p) => s + ticketsOf(p), 0) || 1;
+
+  if (!M.balls.length && !M.feeding) {
+    M.r = ballRadiusFor(total); makeSprites(M.r);
+    if (idx > 0) fillInstantly(remain);   // 새로고침했는데 이미 추첨이 진행 중이면 바로 채움
+  }
+
+  $('drawGrid').innerHTML = ps.map(p => {
+    const t = ticketsOf(p), out = !!wonBy[p.id];
+    return `<div class="pcard ${out ? 'out' : ''}" data-id="${p.id}">
+      <div class="pname">${esc(p.name)}</div>
+      ${out
+        ? `<div class="pprize">🎁 ${esc(wonBy[p.id])}</div>`
+        : `<div class="pstats"><span class="ptk">🎟️ ${t}장</span><span class="ppct">${(t / total * 100).toFixed(1)}%</span></div>`}
+    </div>`;
+  }).join('');
+
+  if (idx < prizes.length) {
+    $('drawTitle').innerHTML = `${idx + 1}번째 추첨 · <span class="accent">🎁 ${esc(prizes[idx])}</span>`;
+    $('btnDraw').textContent = M.fed ? '🎰 추첨하기' : '🎟️ 응모권 넣기';
+  } else {
+    $('drawTitle').textContent = '🎊 모든 추첨이 끝났어요!';
+    $('btnDraw').textContent = '당첨자 모아 보기';
+  }
+  $('btnDraw').disabled = M.feeding;
+  updateTotal();
+}
+
+function fillInstantly(players) {
+  M.balls = [];
+  for (const p of players) {
+    const t = ticketsOf(p);
+    for (let k = 0; k < t; k++) {
+      const ang = randFloat() * Math.PI * 2, dist = Math.sqrt(randFloat()) * (M.R - M.r - 12);
+      M.balls.push({ owner: p.id, kind: kindOf(p, k), x: M.cx + Math.cos(ang) * dist, y: M.cy + Math.sin(ang) * dist, vx: 0, vy: 0, life: 1, dying: false });
+    }
+  }
+  M.fed = true;
+}
+
+/* 각 카드에서 응모권 공이 기계로 날아 들어감 */
+async function feedTickets() {
+  M.feeding = true;
+  $('btnDraw').disabled = true;
+  M.balls = [];
+  const target = intakePoint();
+  const flights = [];
+  const cards = [...document.querySelectorAll('.pcard:not(.out)')];
+  const wave = 85;                                       // 한 장씩 나가는 간격(ms)
+  cards.forEach((card, i) => {
+    const p = data.players[card.dataset.id];
+    const t = ticketsOf({ ...p, id: card.dataset.id });
+    const rc = card.getBoundingClientRect();
+    setTimeout(() => card.classList.add('emitting'), i * 45);
+    setTimeout(() => card.classList.remove('emitting'), i * 45 + t * wave + 300);
+    for (let k = 0; k < t; k++) {
+      const kind = kindOf(p, k), special = kind !== 'w';
+      const delay = i * 45 + k * wave;
+      flights.push(new Promise(res => {
+        setTimeout(() => {
+          const sx = rc.left + rc.width * (0.2 + Math.random() * 0.6);
+          const sy = rc.top + rc.height * (0.3 + Math.random() * 0.4);
+          const el = document.createElement('div');
+          el.className = 'fly-ticket ' + kind;
+          el.style.left = sx + 'px'; el.style.top = sy + 'px';
+          document.body.appendChild(el);
+          const dx = target.x - sx, dy = target.y - sy;
+          const lift = 120 + Math.random() * 120;
+          const anim = el.animate([
+            { transform: 'translate(-50%,-50%) scale(.4)', opacity: 0 },
+            { transform: `translate(calc(-50% + ${dx * .1}px), calc(-50% + ${dy * .1 - 40}px)) scale(${special ? 1.6 : 1.3})`, opacity: 1, offset: .12 },
+            { transform: `translate(calc(-50% + ${dx * .5}px), calc(-50% + ${dy * .5 - lift}px)) scale(${special ? 1.5 : 1.2})`, offset: .55 },
+            { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.7)`, opacity: 1 }
+          ], { duration: 900 + Math.random() * 250, easing: 'cubic-bezier(.4,0,.7,1)', fill: 'forwards' });
+          anim.onfinish = () => { el.remove(); addBall(card.dataset.id, kind); Sound.pop(kind); res(); };
+        }, delay);
+      }));
+    }
+  });
+  await Promise.all(flights);
+  M.feeding = false;
+  M.fed = true;
+  await sleep(700);
+  renderDraw();
+}
+
+/* 섞고 → 공 하나 뽑기 */
+$('btnDraw').onclick = async () => {
+  Sound.init(); Sound.click();
+  if (!Sound.bgmOn) Sound.startBgm();
+  const ws = winnersArr();
+  const idx = ws.length;
+  if (idx >= data.prizes.length) { Sound.stopBgm(); update(ref(db, 'lottery/' + room), { status: 'done' }); return; }
+  if (!M.fed) { feedTickets(); return; }
+
+  const live = M.balls.filter(b => !b.dying);
+  if (!live.length) { alert('더 뽑을 사람이 없어요.'); return; }
+
+  rolling = true;
+  $('btnDraw').disabled = true;
+  const prize = data.prizes[idx];
+  await update(ref(db, 'lottery/' + room), { rolling: idx });
+
+  // 1) 세차게 섞기 + 드럼롤
+  const MIX = 3.6;
+  Sound.duck(0.25);
+  Sound.drumroll(MIX);
+  await tween(M, { jet: 1.4, mix: 1, shake: 7 }, 900, t => t);
+  await sleep(MIX * 1000 - 900);
+
+  // 2) 공 하나 뽑기 — 공 1개 = 응모권 1장이라 많이 넣은 사람이 그만큼 잘 뽑혀요
+  const pickedBall = live[Math.floor(randFloat() * live.length)];
+  const winner = playersArr().find(p => p.id === pickedBall.owner);
+  M.balls.splice(M.balls.indexOf(pickedBall), 1);
+  M.star = { x: pickedBall.x, y: pickedBall.y, r: M.r + 3, kind: pickedBall.kind, label: '' };
+  updateTotal();
+
+  // 3) 위쪽 관으로 쭉 빨려 올라갔다가 크게 등장
+  Sound.whoosh();
+  tween(M, { jet: 0.25, mix: 0, shake: 0 }, 1500);
+  await tween(M.star, { x: M.cx, y: M.cy - M.R + 44, r: M.r + 8 }, 600);
+  await tween(M.star, { y: 40, r: 24 }, 450, t => t * t);
+  M.star.label = winner.name;
+  Sound.fanfare();
+  await tween(M.star, { y: M.cy, r: 170 }, 900, t => 1 - Math.pow(1 - t, 4));
+  await sleep(800);
+
+  $('winPrize').textContent = `🎁 ${prize}`;
+  $('winName').textContent = winner.name;
+  $('winOverlay').hidden = false;
+  confetti();
+
+  await update(ref(db, 'lottery/' + room), {
+    [`winners/w${idx}`]: { idx, prize, id: winner.id, name: winner.name },
+    rolling: null
+  });
+  M.lastWinner = winner.id;
+};
+
+$('btnWinClose').onclick = async () => {
+  $('winOverlay').hidden = true;
+  Sound.duck(1, 1.2);
+  if (M.star) await tween(M.star, { r: 0 }, 350);
+  M.star = null;
+  for (const b of M.balls) if (b.owner === M.lastWinner) b.dying = true;   // 당첨자의 나머지 공은 빠져나감
+  rolling = false;
+  renderDraw();
+};
+
+function confetti() {
+  const em = ['🎉', '🎊', '✨', '🎁', '⭐'];
+  for (let i = 0; i < 40; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    d.textContent = em[i % em.length];
+    d.style.left = Math.random() * 100 + 'vw';
+    d.style.animationDuration = 2 + Math.random() * 2 + 's';
+    d.style.animationDelay = Math.random() * .8 + 's';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 5000);
+  }
+}
+
+/* ---------- 끝 ---------- */
+const doneShown = new Set();
+function renderDone() {
+  renderWall(playersArr(), $('doneWall'), doneShown);
+  $('doneList').innerHTML = winnersArr().slice().reverse().map(w =>
+    `<div class="tk" style="margin-bottom:14px"><span>🎁 ${esc(w.prize)}</span><b>${esc(w.name)}</b></div>`).join('');
+}
+
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = async () => {
+  if (!confirm('방을 닫으면 모든 기록이 삭제돼요. 닫을까요?')) return;
+  await remove(ref(db, 'lottery/' + room));
+  reset();
+});
+
+/* ---------- 새로고침해도 이어하기 ---------- */
+(async () => {
+  try {
+    uid = (await signInAnonymously(auth)).user.uid;
+    $('btnCreate').disabled = false;
+  } catch (e) {
+    show('setup');
+    $('btnCreate').disabled = true;
+    $('setupErr').textContent = 'Firebase 로그인에 실패했어요. 콘솔에서 익명 로그인을 켰는지 확인해 주세요. (' + e.code + ')';
+    return;
+  }
+  const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+  if (saved?.room) {
+    const snap = await get(ref(db, 'lottery/' + saved.room));
+    if (snap.exists() && snap.val().hostUid === uid) { room = saved.room; secret = saved.secret; listen(); return; }
+    localStorage.removeItem(STORE);
+  }
+  show('setup');
+})();
+</script>
+</body>
+</html>
