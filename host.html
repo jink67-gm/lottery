@@ -213,7 +213,7 @@ function renderPrizeInputs() {
   const n = Math.max(1, Math.min(20, +$('prizeCount').value || 1));
   const old = [...document.querySelectorAll('.prizeName')].map(i => i.value);
   $('prizeInputs').innerHTML = Array.from({ length: n }, (_, i) =>
-    `<label>${i + 1}번째 추첨${i === n - 1 ? ' 🏆 마지막 · 가장 큰 상품' : ''}</label>
+    `<label>${i + 1}번째 추첨${i === n - 1 ? ' ' : ''}</label>
      <input class="prizeName" type="text" value="${esc(old[i] || '')}" placeholder="예) ${['커피 쿠폰', '케이크 쿠폰', '상품권 1만원', '상품권 3만원'][i] || '상품 이름'}">`
   ).join('');
 }
