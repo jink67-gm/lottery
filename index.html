@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>행운 추첨</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap narrow">
+
+  <!-- 입장 -->
+  <section id="v-join" class="view">
+    <div class="ribbon" style="margin-top:14px">🎁 행운 추첨</div>
+    <div class="box">
+      <div id="roomBox">
+        <label>방 번호</label>
+        <input id="roomInput" type="number" inputmode="numeric" placeholder="4자리 숫자" style="text-align:center">
+      </div>
+      <label>이름</label>
+      <input id="nameInput" type="text" maxlength="12" placeholder="예) 김민수">
+      <button id="btnJoin" class="btn big full" style="margin-top:26px" disabled>입장하기</button>
+      <div id="joinErr" class="err"></div>
+    </div>
+  </section>
+
+  <!-- 대기 -->
+  <section id="v-wait" class="view center" hidden>
+    <div class="box" style="margin-top:30px; padding:40px 22px">
+      <div class="emoji-xl" id="waitEmoji">⏳</div>
+      <h2 id="waitTitle"></h2>
+      <p class="muted" id="waitMsg"></p>
+      <div id="waitExtra"></div>
+    </div>
+  </section>
+
+  <!-- 미션 -->
+  <section id="v-mission" class="view" hidden>
+    <div class="steps" id="steps"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+    <div class="box" id="missionBox"></div>
+  </section>
+
+  <!-- 결과 -->
+  <section id="v-result" class="view" hidden>
+    <div class="box center">
+      <h2>🎟️ 내 응모권</h2>
+      <div class="big-num" id="myTickets"></div>
+    </div>
+    <div class="box" id="myBreakdown"></div>
+    <p class="center muted"><b>큰 화면</b>에서 곧 추첨이 시작돼요!</p>
+  </section>
+
+  <!-- 추첨 중 / 끝 -->
+  <section id="v-draw" class="view" hidden>
+    <div class="box center" id="drawNow" style="padding:34px 20px"></div>
+    <div class="box">
+      <h2>🏆 당첨자</h2>
+      <div id="drawList" class="muted">아직 없어요</div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="winOverlay" hidden>
+  <div class="winbox">
+    <div class="crown">🎉</div>
+    <div class="prize" id="winPrize"></div>
+    <div class="name">당첨!</div>
+    <div class="congrats">축하합니다!</div>
+    <button class="btn big" onclick="document.getElementById('winOverlay').hidden=true">확인</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, update, get, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const BASE = 10;
+
+let uid = null;
+let room = new URLSearchParams(location.search).get('room');
+let me = null;          // { id, name }
+let data = null;
+let step = 0;           // 미션 단계 0~3
+let answers = {};       // { ox, card, num, maj }
+const seenWins = new Set();
+
+function show(name) {
+  document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== 'v-' + name);
+}
+const KEY = () => 'lottery_' + room;
+function saveLocal() { localStorage.setItem(KEY(), JSON.stringify({ me, step, answers })); }
+
+/* ---------- 입장 ---------- */
+if (room) $('roomBox').hidden = true;
+
+$('btnJoin').onclick = async () => {
+  const r = room || $('roomInput').value.trim();
+  const name = $('nameInput').value.trim();
+  if (!r) { $('joinErr').textContent = '방 번호를 입력해 주세요.'; return; }
+  if (!name) { $('joinErr').textContent = '이름을 입력해 주세요.'; return; }
+  $('btnJoin').disabled = true;
+  $('joinErr').textContent = '';
+  try {
+    const snap = await get(ref(db, 'lottery/' + r));
+    if (!snap.exists()) throw new Error('방을 찾을 수 없어요. 방 번호를 확인해 주세요.');
+    const st = snap.val().status;
+    if (st !== 'lobby' && st !== 'missions') throw new Error('이미 결과 발표가 시작되어 입장할 수 없어요.');
+    room = r;
+    const pref = push(ref(db, `lottery/${room}/players`));
+    await set(pref, { name, uid, joinedAt: Date.now() });
+    me = { id: pref.key, name };
+    step = 0; answers = {};
+    saveLocal();
+    listen();
+  } catch (e) {
+    $('joinErr').textContent = e.message;
+    $('btnJoin').disabled = false;
+  }
+};
+
+function listen() {
+  onValue(ref(db, 'lottery/' + room), snap => {
+    data = snap.val();
+    render();
+  });
+}
+
+/* ---------- 상태별 화면 ---------- */
+function wait(emoji, title, msg) {
+  $('waitEmoji').textContent = emoji;
+  $('waitTitle').textContent = title;
+  $('waitMsg').textContent = msg;
+  // 내가 보낸 환영 한마디
+  const mine = data?.players?.[me?.id];
+  const sent = typeof mine?.answers?.msg === 'string' ? mine.answers.msg : null;
+  $('waitExtra').innerHTML = sent ? `<div class="greet-badge">💌 ${esc(sent)}</div><p class="hint" style="margin-top:10px">큰 화면에 내 메시지가 떠올랐어요!</p>` : '';
+  show('wait');
+}
+
+function render() {
+  if (!data) {
+    localStorage.removeItem(KEY());
+    wait('🙏', '추첨이 끝났어요', '참여해 주셔서 감사합니다!');
+    return;
+  }
+  const mine = data.players?.[me.id];
+  if (!mine) { localStorage.removeItem(KEY()); location.reload(); return; }
+
+  switch (data.status) {
+    case 'lobby':
+      wait('👋', `${me.name} 선생님, 환영해요!`, '곧 미션이 시작돼요. 잠시만 기다려 주세요.');
+      break;
+    case 'missions':
+      if (mine.answers) wait('👏', '미션 완료!', '다른 선생님들이 끝날 때까지 기다려 주세요.');
+      else if ($('v-mission').hidden) { show('mission'); renderStep(); }
+      break;
+    case 'reveal':
+      renderResult(mine);
+      break;
+    case 'drawing':
+    case 'done':
+      renderDraw();
+      break;
+  }
+}
+
+/* ---------- 미션 ---------- */
+function renderStep() {
+  document.querySelectorAll('#steps span').forEach((d, i) => {
+    d.classList.toggle('on', i === step);
+    d.classList.toggle('done', i < step);
+  });
+  const box = $('missionBox');
+  if (step === 0) {
+    box.innerHTML = `
+      <h2>OX 퀴즈</h2>
+      <p class="question">${esc(data.ox.q)}</p>
+      <div class="ox"><button class="o" data-v="O">O</button><button class="x" data-v="X">X</button></div>
+      <button class="btn big full" id="next" style="margin-top:26px" disabled>다음</button>`;
+    pickOne(box.querySelector('.ox'), v => answers.ox = v);
+  } else if (step === 1) {
+    box.innerHTML = `
+      <h2>운명의 카드</h2>
+      <p class="question">카드 한 장을 골라 주세요!</p>
+      <p class="hint">3장 중 2장이 행운 카드예요 🍀</p>
+      <div class="cards3">${[0, 1, 2].map(i => `<button class="fcard" data-i="${i}">?</button>`).join('')}</div>
+      <p class="center jua" id="cardMsg" style="font-size:2rem; min-height:1.6em; margin:0 0 10px"></p>
+      <button class="btn big full" id="next" disabled>다음</button>`;
+    const lose = Math.floor(Math.random() * 3);
+    box.querySelectorAll('.fcard').forEach(c => c.onclick = () => {
+      const i = +c.dataset.i;
+      answers.card = i !== lose;
+      box.querySelectorAll('.fcard').forEach(x => {
+        const k = +x.dataset.i;
+        x.disabled = true;
+        x.textContent = k === lose ? '꽝' : '🍀';
+        x.classList.add(k === lose ? 'lose' : 'win');
+        if (k !== i) x.style.opacity = .35;
+      });
+      $('cardMsg').textContent = answers.card ? '🎉 행운 카드! +1장' : '😅 꽝! 괜찮아요';
+      $('cardMsg').style.color = answers.card ? 'var(--green)' : 'var(--sub)';
+      $('next').disabled = false;
+    });
+  } else if (step === 2) {
+    box.innerHTML = `
+      <h2>숫자 맞히기</h2>
+      <p class="question">주최자가 몰래 고른 숫자는?</p>
+      <p class="hint">딱 맞히면 <b>+2장</b>, 1 차이면 <b>+1장</b></p>
+      <div class="pick ten" style="margin-top:18px">${Array.from({ length: 10 }, (_, i) => `<button data-v="${i + 1}">${i + 1}</button>`).join('')}</div>
+      <button class="btn big full" id="next" style="margin-top:26px" disabled>다음</button>`;
+    pickOne(box.querySelector('.pick'), v => answers.num = +v);
+  } else if (step === 3) {
+    const m = data.majority;
+    box.innerHTML = `
+      <h2>다수결 게임</h2>
+      <p class="question">${esc(m.q)}</p>
+      <p class="hint">더 많은 사람이 고를 것 같은 쪽을 골라 주세요!</p>
+      <div class="pick two" style="margin-top:18px"><button data-v="a">${esc(m.a)}</button><button data-v="b">${esc(m.b)}</button></div>
+      <button class="btn big full" id="next" style="margin-top:26px" disabled>다음</button>`;
+    pickOne(box.querySelector('.pick'), v => answers.maj = v);
+  } else if (step === 4) {
+    const list = data.welcome || [];
+    box.innerHTML = `
+      <h2>환영 한마디</h2>
+      <p class="question">교장선생님께 한마디를 써 주세요!</p>
+      <p class="hint">보내기만 하면 <b>+1장</b> · 큰 화면에 이름과 함께 떠올라요 💌</p>
+      <textarea id="msgInput" class="msg-input" maxlength="60" placeholder="여기에 써 주세요">${esc(answers.msg || '')}</textarea>
+      <div class="msg-count"><span id="msgLen">0</span> / 60자</div>
+      ${list.length ? `<p class="hint" style="margin:16px 0 8px">✍️ 쓰기 어려우면 눌러서 채운 뒤 고쳐 써도 돼요</p>
+      <div class="chips" id="msgEx">${list.map(t => `<button class="chip ex">${esc(t)}</button>`).join('')}</div>` : ''}
+      <button class="btn big full green" id="next" style="margin-top:26px" disabled>보내고 제출하기 ✔</button>`;
+    const inp = $('msgInput');
+    const sync = () => {
+      answers.msg = inp.value;
+      $('msgLen').textContent = inp.value.length;
+      $('next').disabled = !inp.value.trim();
+    };
+    inp.addEventListener('input', () => { sync(); saveLocal(); });
+    $('msgEx')?.addEventListener('click', e => {
+      const b = e.target.closest('.ex'); if (!b) return;
+      inp.value = b.textContent; sync(); saveLocal(); inp.focus();
+    });
+    sync();
+  }
+  $('next').onclick = nextStep;
+}
+
+function pickOne(container, onPick) {
+  container.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    container.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    onPick(b.dataset.v);
+    $('next').disabled = false;
+  });
+}
+
+async function nextStep() {
+  if (step < 4) {
+    step++;
+    saveLocal();
+    renderStep();
+    window.scrollTo(0, 0);
+    return;
+  }
+  $('next').disabled = true;
+  try {
+    await update(ref(db, `lottery/${room}/players/${me.id}`), { answers: { ...answers, msg: (answers.msg || '').trim().slice(0, 60), at: Date.now() } });
+    saveLocal();
+  } catch (e) {
+    alert('제출에 실패했어요. 미션 시간이 끝났을 수 있어요.');
+    $('next').disabled = false;
+  }
+}
+
+/* ---------- 결과 ---------- */
+function renderResult(mine) {
+  const r = mine.result || { ox: 0, card: 0, num: 0, maj: 0, tickets: BASE };
+  const a = mine.answers || {};
+  const rv = data.reveal, m = data.majority;
+  $('myTickets').textContent = r.tickets + '장';
+  const line = (title, detail, plus) =>
+    `<div class="tk" style="margin-bottom:14px">
+       <span>${title}<span class="detail">${detail}</span></span>
+       <b style="color:${plus ? 'var(--green)' : '#a8957d'}">+${plus}</b>
+     </div>`;
+  $('myBreakdown').innerHTML =
+    line('기본 응모권', '모두 똑같이', BASE) +
+    line('OX 퀴즈', `정답 ${rv.oxAnswer} · 내 답 ${a.ox || '-'}`, r.ox) +
+    line('운명의 카드', a.card ? '행운 카드!' : (a.ox ? '꽝' : '-'), r.card) +
+    line('숫자 맞히기', `정답 ${rv.secretNum} · 내 답 ${a.num || '-'}`, r.num) +
+    line('다수결', `${esc(m.a)} ${rv.cntA} : ${rv.cntB} ${esc(m.b)}`, r.maj) +
+    line('환영 한마디', typeof a.msg === 'string' && a.msg.trim() ? esc(a.msg) : '-', r.welcome || 0);
+  show('result');
+}
+
+/* ---------- 추첨 ---------- */
+function renderDraw() {
+  const ws = (data.winners ? Object.values(data.winners) : []).sort((a, b) => a.idx - b.idx);
+  $('drawList').innerHTML = ws.length
+    ? ws.map(w => `<div class="tk" style="margin-bottom:14px"><span>🎁 ${esc(w.prize)}</span><b>${esc(w.name)}</b></div>`).join('')
+    : '아직 없어요';
+
+  const mineWin = ws.find(w => w.id === me.id);
+  const myTickets = data.players[me.id].result?.tickets ?? BASE;
+  let html;
+  if (data.status === 'done') {
+    html = `<div class="emoji-xl">🎊</div><h2>추첨 끝!</h2><p class="muted">${mineWin ? `<b>${esc(mineWin.prize)}</b> 당첨을 축하드려요!` : '참여해 주셔서 감사합니다!'}</p>`;
+  } else if (data.rolling != null) {
+    html = `<div class="emoji-xl">🥁</div><h2>${esc(data.prizes[data.rolling])}</h2><p class="muted">추첨 중… <b>큰 화면</b>을 봐 주세요!</p>`;
+  } else if (mineWin) {
+    html = `<div class="emoji-xl">🎉</div><h2>${esc(mineWin.prize)} 당첨!</h2><p class="muted">다음 추첨도 함께 봐요</p>`;
+  } else {
+    const left = data.prizes.length - ws.length;
+    html = `<div class="emoji-xl">🍀</div><h2>남은 상품 ${left}개</h2><p class="muted">내 응모권 <b>${myTickets}장</b> · 행운을 빌어요!</p>`;
+  }
+  $('drawNow').innerHTML = html;
+  show('draw');
+
+  for (const w of ws) {
+    if (seenWins.has(w.idx)) continue;
+    seenWins.add(w.idx);
+    if (w.id === me.id) {
+      $('winPrize').textContent = '🎁 ' + w.prize;
+      $('winOverlay').hidden = false;
+      navigator.vibrate?.([200, 100, 200]);
+    }
+  }
+}
+
+/* ---------- 시작: 로그인 → 새로고침이면 이어하기 ---------- */
+(async () => {
+  try {
+    uid = (await signInAnonymously(auth)).user.uid;
+  } catch (e) {
+    $('joinErr').textContent = '연결에 실패했어요. 잠시 후 새로고침해 주세요.';
+    return;
+  }
+  $('btnJoin').disabled = false;
+  if (!room) return;
+  const saved = JSON.parse(localStorage.getItem(KEY()) || 'null');
+  if (!saved?.me) return;
+  const snap = await get(ref(db, `lottery/${room}/players/${saved.me.id}`)).catch(() => null);
+  if (!snap?.exists() || snap.val().uid !== uid) { localStorage.removeItem(KEY()); return; }
+  me = saved.me; step = saved.step || 0; answers = saved.answers || {};
+  // 이미 발표된 당첨은 다시 팝업 띄우지 않기
+  const w = (await get(ref(db, `lottery/${room}/winners`))).val();
+  if (w) Object.values(w).forEach(x => seenWins.add(x.idx));
+  listen();
+})();
+</script>
+</body>
+</html>
